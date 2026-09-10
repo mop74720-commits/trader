@@ -1,0 +1,9 @@
+[project]
+name = "ga-trader-reproduction"
+version = "0.1.0"
+description = "Local paper-trading reproduction of the GenericAgent Trader architecture"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

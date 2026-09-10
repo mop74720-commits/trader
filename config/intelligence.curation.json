@@ -1,0 +1,7 @@
+{
+  "version": "curation-v1",
+  "weights": {"relevance": 0.30, "materiality": 0.25, "specificity": 0.15, "freshness": 0.15, "source_quality": 0.15},
+  "thresholds": {"monetary_policy": 58, "regulation": 58, "security": 54, "exchange": 60, "derivatives": 60, "market": 60},
+  "tier_discount": {"T1": 8, "T1.5": 3, "T2": 0, "unrated": 0},
+  "uncertainty_penalty": 8
+}

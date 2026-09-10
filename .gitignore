@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+data/
+.env
+output/
+.venv/
+.playwright-cli/
+config/imports/

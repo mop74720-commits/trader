@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "fed",
+      "name": "Federal Reserve · 官方发布",
+      "kind": "rss",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "group": "federal_reserve",
+      "reliability": 0.95,
+      "interval_seconds": 900,
+      "ttl_seconds": 604800,
+      "tier": "T1",
+      "editorial_note": "官方原始公告。只精选与货币政策或数字资产直接相关的内容，机构行政事务不因官方身份自动入选。"
+    },
+    {
+      "id": "coindesk",
+      "name": "CoinDesk · 新闻 RSS",
+      "kind": "rss",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
+      "group": "coindesk",
+      "reliability": 0.75,
+      "interval_seconds": 300,
+      "ttl_seconds": 86400,
+      "tier": "T2",
+      "editorial_note": "行业媒体，用于发现进展和补充视角；二手报道仍需核对最初出处。"
+    },
+    {
+      "id": "binance_telegram",
+      "name": "Binance Announcements · Telegram 公共频道",
+      "kind": "telegram",
+      "channel": "binance_announcements",
+      "group": "binance",
+      "reliability": 0.8,
+      "interval_seconds": 300,
+      "ttl_seconds": 86400,
+      "tier": "T1.5",
+      "editorial_note": "官方公开频道，覆盖交易所公告；营销活动与重要业务变更分开处理。"
+    },
+    {
+      "id": "polymarket_crypto",
+      "name": "Polymarket · Crypto 市场报价",
+      "kind": "polymarket",
+      "tag_id": "21",
+      "group": "polymarket",
+      "reliability": 0.55,
+      "interval_seconds": 300,
+      "ttl_seconds": 900,
+      "limit": 30,
+      "tier": "unrated",
+      "editorial_note": "市场报价参考，单独展示，不纳入新闻精选或事实确认。"
+    },
+    {
+      "id": "x_selected",
+      "name": "X · 配置账户检索",
+      "kind": "x",
+      "enabled": false,
+      "query": "(from:federalreserve OR from:SECGov) -is:retweet",
+      "group": "x_selected_unresolved",
+      "reliability": 0.5,
+      "interval_seconds": 900,
+      "ttl_seconds": 86400,
+      "limit": 20,
+      "tier": "unrated",
+      "editorial_note": "尚未启用；混合账户检索未逐账户核对身份，不直接赋予官方等级。"
+    },
+    {
+      "id": "local_import",
+      "name": "本地 JSONL · 自有来源导入",
+      "kind": "jsonl",
+      "enabled": false,
+      "path": "imports/custom.jsonl",
+      "group": "custom",
+      "reliability": 0.4,
+      "interval_seconds": 300,
+      "ttl_seconds": 86400,
+      "tier": "unrated",
+      "editorial_note": "自有导入材料，需逐来源审查后再设定等级。"
+    }
+  ]
+}
