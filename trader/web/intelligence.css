@@ -1,4 +1,6 @@
 .intel-heading { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:5px 0 22px; }
+.intel-heading .intel-kicker { color:var(--intel-accent,#d3b26a); font-size:11px; letter-spacing:1px; text-transform:uppercase; margin:0 0 4px; }
+.intel-heading > div > p:last-child { color:var(--muted); font-size:13px; margin:0; }
 .intel-reader-layout { --intel-accent:#d3b26a; --intel-ink:#e8ebf2; --intel-muted:#98a2b3; display:grid; grid-template-columns:minmax(0,1fr) 258px; gap:30px; align-items:start; }
 .intel-reader-layout #intel-feed { background:#171d26; border-color:#2b3340; border-radius:12px; }
 .intel-mode-tabs { display:flex; gap:22px; padding:0 24px; border-bottom:1px solid #2b3340; }
@@ -8,6 +10,7 @@
 .intel-feed-heading { padding:22px 24px 12px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:center; }
 .intel-feed-heading h2 { font-size:17px; }
 .intel-feed-heading > span { color:#98a2b3; font-size:11px; }
+.intel-feed-heading h2 { letter-spacing:.2px; }
 .intel-categories { display:flex; gap:6px; padding:0 24px 16px; overflow:auto; }
 .intel-categories button { white-space:nowrap; border:0; background:transparent; color:#98a2b3; font-size:12px; padding:6px 10px; border-radius:6px; }
 .intel-categories button[aria-pressed="true"] { background:#333126; color:var(--intel-accent); }

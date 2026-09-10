@@ -104,8 +104,10 @@
     const focus=[...new Set([...(digest.context?.holdings||[]),...(digest.context?.watchlist||[])])];
     $('intel-quality-summary').textContent=focus.length?`围绕 ${focus.join('、')}，优先保留与当前关注范围相关的信息。`:'按通用市场视角整理当时的信息。';
     $('intel-digest-time').textContent=`${time(digest.as_of)} 北京时间`;
-    $('intel-feed-title').textContent={selected:'最新精选',timeline:'全部市场动态',quotes:'预测市场报价'}[displayedMode];
-    $('intel-view-status').textContent=`${historical?'历史快照 · ':''}显示 ${events.length} / ${digest.feed.matched_total} 条 · ${displayedMode==='selected'?'达到精选门槛的报道':displayedMode==='timeline'?'相关报道，含未进入精选的内容':'市场报价单独呈现'}${events.length>30?' · 加载更多时固定查询时间，点击检查更新返回最新快照':''}`;
+    $('intel-feed-title').textContent={selected:'重要信息',timeline:'全部信息',quotes:'市场预期'}[displayedMode];
+    const selectedCount=digest.feed.counts.selected;
+    $('intel-brief-title').textContent=selectedCount?`发现 ${selectedCount} 条重要信息`:'暂时没有重要信息';
+    $('intel-view-status').textContent=`${historical?'历史快照 · ':''}当前显示 ${events.length} 条，共匹配 ${digest.feed.matched_total} 条 · ${displayedMode==='selected'?'系统判断为重要的信息':displayedMode==='timeline'?'相关信息，包含待进一步确认的内容':'市场参与者的预期报价'}${events.length>30?' · 加载更多时固定查询时间，点击检查更新返回最新快照':''}`;
     $('intel-live').hidden=!historical;
     $('intel-load-more').hidden=digest.feed.next_offset==null;
     ['selected','timeline','quotes'].forEach(k=>{$('intel-count-'+k).textContent=digest.feed.counts[k];});
