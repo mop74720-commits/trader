@@ -16,13 +16,13 @@
     <a class="brand" href="/" aria-label="Trader 首页"><span class="brandmark">↗</span> trader<span class="brand-dot">.</span></a>
     <div class="workspace-label">AUTONOMOUS LAB / 01</div>
     <nav aria-label="主导航">
-      <button class="nav active" data-page="overview"><span>◫</span> 总览 <small>01</small></button>
-      <button class="nav" data-page="decisions"><span>≋</span> 决策记录 <small>02</small></button>
-      <button class="nav" data-page="factors"><span>⌘</span> 因子研究 <small>03</small></button>
-      <button class="nav" data-page="system"><span>◉</span> 系统状态 <small>04</small></button>
-      <button class="nav" data-page="intelligence"><span>⌁</span> 市场信息 <small>05</small></button>
+      <button class="nav active" data-page="intelligence"><span>⌁</span> 信息简报 <small>01</small></button>
+      <button class="nav" data-page="overview"><span>◫</span> 模拟账户 <small>02</small></button>
+      <button class="nav" data-page="decisions"><span>≋</span> 交易复盘 <small>03</small></button>
+      <button class="nav" data-page="factors"><span>⌘</span> 策略研究 <small>04</small></button>
+      <button class="nav" data-page="system"><span>◉</span> 运行状态 <small>05</small></button>
     </nav>
-    <div class="sidebar-bottom"><span class="pill">PAPER ONLY</span><p>认知交给模型<br>边界交给规则</p><div class="muted tiny">GenericAgent 架构复现<br>本地独立实现 · v0.1</div></div>
+    <div class="sidebar-bottom"><span class="pill">仅模拟交易</span><p>先读信息<br>再看决策依据</p><div class="muted tiny">GenericAgent 架构复现<br>本地独立实现 · v0.1</div></div>
   </aside>
   <main>
     <header class="topbar"><div class="breadcrumb">实验室 <span>/</span> <b id="page-label">总览</b></div><div class="connection"><i id="connection-dot"></i><span id="connection-text">正在连接</span><time id="sim-time">—</time></div></header>
@@ -41,27 +41,38 @@
       <section id="factors" class="page" hidden><div class="research-banner"><span>RESEARCH → VALIDATION → TRIAL</span><h2>研究成果先验证，再观察。</h2><p>70% 训练 / 30% 留出验证，隔离 4 根 K 线标签。候选因子不自动获得交易权限。</p></div><div class="panel"><div class="section-head"><h2>候选因子</h2><span class="pill">BTC · SYNTHETIC</span></div><div class="table-scroll"><table><thead><tr><th>因子</th><th>状态</th><th>训练 IC</th><th>验证 IC</th><th>Rank IC</th><th>验证样本</th><th>扣费平均收益</th><th>资金权限</th></tr></thead><tbody id="factor-rows"></tbody></table></div></div><p class="muted research-footnote">IC 为时序相关性；验证标签为未来 4 根 K 线收益。扣费收益使用不重叠的多头交易估计，双边各计 6 bps 手续费和 5 bps 滑点。合成数据仅用于验证流程，不能证明市场有效性。</p></section>
       <section id="system" class="page" hidden><div class="system-grid"><section class="panel"><div class="section-head"><h2>运行状态</h2></div><dl id="system-details"></dl></section><section class="panel"><div class="section-head"><h2>确定性风控</h2></div><dl><div><dt>单资产 / 总敞口上限</dt><dd>20% / 60%</dd></div><div><dt>单笔止损风险预算</dt><dd>净值的 0.5%</dd></div><div><dt>回撤 3% / 5% / 8%</dt><dd>缩放 50% / 25% / 熔断</dd></div><div><dt>止损距离</dt><dd>1.5 × 日波动率，限 2–8%</dd></div><div><dt>数据新鲜度限制</dt><dd>30 秒</dd></div><div><dt>治理模式</dt><dd>Critic veto + 风控最终约束</dd></div></dl><button id="flatten-button" class="danger">停止并清空模拟仓位</button><p class="muted tiny">操作后锁定该实验账户；继续实验需使用新数据库。</p></section></div><section class="panel"><div class="section-head"><h2>事件日志</h2><a class="text-link" href="/api/audit" target="_blank" rel="noopener">查看审计 JSON ↗</a></div><div id="event-list"></div></section></section>
       <section id="intelligence" class="page" hidden>
-        <div class="intel-heading"><div><p class="intel-kicker">市场信息中心</p><p>先看重要变化，再查看来源与处理依据。</p></div><button id="intel-collect">检查更新 ↻</button></div>
-        <div id="intel-error" class="error-banner" hidden></div>
+        <div class="intel-heading"><p>来源自动检查，列表按需刷新。所有时间均为北京时间。</p><button id="intel-refresh">刷新列表 ↻</button></div>
+        <div id="intel-error" class="error-banner" role="status" hidden></div>
+        <section class="intel-brief" aria-labelledby="intel-brief-title">
+          <div class="intel-brief-intro"><div class="intel-aside-label">阅读概况</div><h2 id="intel-brief-title">正在整理信息</h2><p id="intel-brief-scope">正在读取时间范围与筛选条件…</p></div>
+          <div class="intel-brief-stats">
+            <div><span>入选报道</span><strong id="intel-brief-selected">—</strong><small>按规则筛选，仍需核实</small></div>
+            <div><span>相关报道</span><strong id="intel-brief-total">—</strong><small>包含未入选的报道</small></div>
+            <div><span>市场反应</span><strong class="intel-data-missing">尚未接入</strong><small>暂无真实价格与成交量对照</small></div>
+          </div>
+        </section>
+        <div class="intel-feed-problem" id="intel-feed-problem" role="alert" hidden><p id="intel-feed-problem-text"></p><button id="intel-feed-retry">重试列表</button></div>
+        <section class="intel-read-first" aria-labelledby="intel-read-first-title"><div><h2 id="intel-read-first-title">先读这几条</h2><p id="intel-read-first-note">按当前列表时间排序，最多显示 3 条。</p></div><ol id="intel-highlights"><li class="muted">正在加载…</li></ol></section>
+        <div class="intel-history-banner" id="intel-history-banner" hidden></div>
         <div class="intel-reader-layout">
         <section class="panel" id="intel-feed">
-          <div class="intel-mode-tabs" role="group" aria-label="阅读视图"><button data-intel-mode="selected" aria-pressed="true">重要信息 <span id="intel-count-selected">—</span></button><button data-intel-mode="timeline" aria-pressed="false">全部信息 <span id="intel-count-timeline">—</span></button><button data-intel-mode="quotes" aria-pressed="false">市场预期 <span id="intel-count-quotes">—</span></button></div>
-          <div class="intel-feed-heading"><h2 id="intel-feed-title">最新精选</h2><span id="intel-digest-time">正在读取…</span></div>
+          <div class="intel-mode-tabs" role="group" aria-label="阅读视图"><button data-intel-mode="selected" aria-pressed="true">精选报道 <span id="intel-count-selected">—</span></button><button data-intel-mode="timeline" aria-pressed="false">全部报道 <span id="intel-count-timeline">—</span></button><button data-intel-mode="quotes" aria-pressed="false">预测市场 <span id="intel-count-quotes">—</span></button></div>
+          <div class="intel-feed-heading"><h2 id="intel-feed-title">精选报道</h2><span id="intel-digest-time">正在读取…</span></div>
           <div class="intel-categories" role="group" aria-label="信息类别"><button data-intel-category="" aria-pressed="true">全部</button><button data-intel-category="monetary_policy" aria-pressed="false">宏观</button><button data-intel-category="regulation" aria-pressed="false">监管</button><button data-intel-category="security" aria-pressed="false">安全</button><button data-intel-category="exchange" aria-pressed="false">交易所</button><button data-intel-category="derivatives" aria-pressed="false">衍生品</button><button data-intel-category="market" aria-pressed="false">市场</button></div>
           <div class="intel-controls"><label>搜索信息<input id="intel-search" type="search" placeholder="例如：BTC、降息、提现"></label><label>信息来源<select id="intel-source-filter"><option value="">全部来源</option></select></label><label>时间范围<select id="intel-window"><option value="24h">过去 24 小时</option><option value="7d">过去 7 天</option></select></label></div>
           <div class="intel-history-row"><details class="intel-history"><summary>查看过去某一时刻</summary><div><label>选择时间（本地时区）<input id="intel-asof" type="datetime-local" step="1"></label><button id="intel-replay">查看当时</button></div><p>只使用当时已读到的信息。页面时间统一为北京时间。</p></details><button id="intel-live" hidden>回到最新</button></div>
-          <p class="intel-view-status" id="intel-view-status" role="status"></p>
+          <p class="intel-view-status" id="intel-view-status" role="status"></p><p class="intel-view-description" id="intel-view-description"></p>
           <div id="intel-events"></div><div class="intel-load"><button id="intel-load-more" hidden>加载更多</button></div>
         </section>
-        <aside class="intel-reader-aside" aria-label="信息筛选说明">
-          <section class="intel-aside-section"><div class="intel-aside-label">你的市场简报</div><h2 id="intel-brief-title">先看重要变化</h2><p id="intel-quality-summary">正在整理与你关注资产相关的信息。</p><p class="intel-small-note">原文摘录 · 规则筛选 · 事实仍需核实</p></section>
-          <section class="intel-aside-section"><h3>这一轮怎样筛选</h3><p class="intel-small-note">当前候选池，非全网总量；不随左侧筛选变化。</p><ol class="intel-funnel" id="intel-funnel"></ol><details class="intel-policy-details"><summary>查看筛选方法</summary><p>先过滤无关、过期和推广内容，再合并相似报道。五项规则评分由代码加权，各类信息使用不同门槛；一手来源优先。</p><p>未使用 AI 评分或自动翻译。等级和得分不能证明内容属实。</p><div id="intel-policy-id"></div></details></section>
-          <section class="intel-aside-section"><h3>信源分层</h3><div id="intel-tier-sources"></div><p class="intel-small-note">官网公告优先于官方社交账号，再看媒体与其他来源。市场报价单独展示。</p></section>
-          <section class="intel-aside-section intel-connection-mini"><span id="intel-health">—</span><p id="intel-source-count">—</p></section>
+        <aside class="intel-reader-aside" aria-label="阅读背景与数据状态">
+          <section class="intel-aside-section"><div class="intel-aside-label">关联资产</div><h2>与你关注的市场有关</h2><p id="intel-quality-summary">正在读取关注范围…</p><div id="intel-focus-assets" class="intel-focus-assets"></div><p class="intel-small-note">点击资产可搜索相关报道；出现资产名称不代表已确认受到影响。</p></section>
+          <section class="intel-aside-section"><h3>这些信息能告诉你什么</h3><ol class="intel-reading-guide"><li><b>报道了什么</b><span>保留原标题、摘录与来源。</span></li><li><b>哪些地方还不确定</b><span>标记说法冲突和需要核对的证据。</span></li><li><b>市场是否已反应</b><span>真实行情尚未接入，暂不判断涨跌影响。</span></li></ol></section>
+          <section class="intel-aside-section intel-connection-mini"><h3>当前运行状态</h3><span id="intel-health">正在连接来源</span><p id="intel-source-count">正在读取来源状态…</p><p id="intel-source-freshness"></p><p id="intel-decision-mode">正在读取模拟账户状态…</p><a href="#overview" class="intel-inline-link">查看模拟账户 →</a><p class="intel-small-note">模拟账户使用合成行情。信息采集独立运行，不受模拟暂停影响。</p></section>
         </aside>
         </div>
-        <details class="panel intel-secondary"><summary>信源目录与更新状态</summary><p class="intel-secondary-note">连接正常只说明最近一次读取成功，不等于来源覆盖完整或内容正确。</p><div class="table-scroll"><table><thead><tr><th>来源</th><th>当前状态</th><th>最近读取 · 北京时间</th><th>本次读取 / 新增版本</th><th>读取间隔 / 内容有效期</th><th>覆盖方式</th></tr></thead><tbody id="intel-sources"></tbody></table></div></details>
-        <details class="panel intel-secondary"><summary>查看最近读取的 100 条记录</summary><p class="intel-secondary-note">这里也会显示被过滤或暂时不相关的内容。打开一条记录可查看原文、发布时间和读取时间。</p><div class="table-scroll"><table><thead><tr><th>标题</th><th>来源</th><th>当前处理</th><th>保存版本</th><th>读取时间 · 北京时间</th><th>详情</th></tr></thead><tbody id="intel-evidence"></tbody></table></div></details>
+        <details class="panel intel-secondary"><summary>信息如何筛选</summary><div class="intel-method-layout"><section><h3>从收到的信息到精选报道</h3><p class="intel-small-note">以下为整个候选池的处理统计，不随上方筛选条件变化。</p><ol class="intel-funnel" id="intel-funnel"></ol><p>先过滤无关、过期和推广内容，再合并相似报道。分数只用于排序与入选，不代表事实正确率。</p><div id="intel-policy-id"></div></section><section><h3>来源如何区分</h3><div id="intel-tier-sources"></div><p>官方来源也需要核实；多条报道一致，不等于已经得到独立证实。</p></section></div></details>
+        <details class="panel intel-secondary" id="intel-source-directory"><summary>信息来源与更新状态</summary><div class="intel-source-actions"><p>只检查已到读取时间的来源；尚未到时间或正在重试的来源会继续等待。</p><button id="intel-collect">检查信源</button></div><p class="intel-secondary-note">连接正常只说明最近一次读取成功，不等于来源覆盖完整或内容正确。</p><div class="table-scroll"><table><thead><tr><th>来源</th><th>当前状态</th><th>最近读取 · 北京时间</th><th>本次读取 / 新增版本</th><th>读取间隔 / 内容有效期</th><th>覆盖方式</th></tr></thead><tbody id="intel-sources"></tbody></table></div></details>
+        <details class="panel intel-secondary"><summary>采集记录（最近 100 条，含未采用内容）</summary><p class="intel-secondary-note">这里也会显示被过滤或暂时不相关的内容。打开一条记录可查看原文、发布时间和读取时间。</p><div class="table-scroll"><table><thead><tr><th>标题</th><th>来源</th><th>当前处理</th><th>保存版本</th><th>读取时间 · 北京时间</th><th>详情</th></tr></thead><tbody id="intel-evidence"></tbody></table></div></details>
         <section class="panel" id="intel-detail" hidden aria-labelledby="intel-detail-title"><div class="section-head"><h2 id="intel-detail-title" tabindex="-1">来源详情</h2><button id="intel-detail-close" class="text-button">关闭详情</button></div><div id="intel-detail-content"></div><details class="intel-raw"><summary>查看原始数据（JSON）</summary><pre id="intel-detail-json"></pre></details></section>
         <details class="panel intel-secondary"><summary>最近提醒</summary><p class="intel-secondary-note">新内容与明显报价变化的记录，不会自动下单。</p><div id="intel-notifications"></div></details>
       </section>

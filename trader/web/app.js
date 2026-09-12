@@ -9,14 +9,14 @@ let state = null;
 let working = false;
 let toastTimer;
 const labels = {
-  overview:['总览','让每个决策，都有迹可循。','自主交易的本地实验台，连接策略、治理与确定性风控。'],
-  decisions:['决策记录','从市场观点，到执行结果。','查看每一轮认知的提议、裁决与实际执行。'],
-  factors:['因子研究','把灵感，交给数据检验。','候选信号经过样本外验证，仅进入观察或淘汰。'],
-  system:['系统状态','持续运行，始终有界。','检查数据新鲜度、风险约束与完整事件记录。'],
-  intelligence:['市场信息','关注的市场，有什么新消息？','汇总公开报道和预测市场报价，方便你阅读、比较并查看出处。']
+  overview:['模拟账户','模拟账户与收益','查看合成行情下的持仓、收益与交易结果。'],
+  decisions:['交易复盘','每笔模拟交易，为什么发生？','对照决策提议、独立审查和实际执行结果。'],
+  factors:['策略研究','把灵感，交给数据检验。','候选信号经过样本外验证，仅进入观察或淘汰。'],
+  system:['运行状态','持续运行，始终有界。','检查数据新鲜度、风险约束与完整事件记录。'],
+  intelligence:['信息简报','市场发生了什么？','先读报道，再看关联资产、来源证据与待核实事项。']
 };
 function page(name) {
-  if (!labels[name]) name='overview';
+  if (!labels[name]) name='intelligence';
   document.querySelectorAll('.page').forEach(el => el.hidden = el.id !== name);
   document.querySelectorAll('.nav').forEach(el => {el.classList.toggle('active',el.dataset.page === name); el.setAttribute('aria-current',el.dataset.page === name ? 'page':'false');});
   ['page-label','page-title','page-description'].forEach((id,i) => $(id).textContent = labels[name][i]);
@@ -25,11 +25,13 @@ function page(name) {
   $('sim-time').hidden = name === 'intelligence';
   document.querySelector('.eyebrow').textContent = name === 'intelligence' ? '公开来源 · 持续更新' : 'OBSERVE. REASON. EXECUTE.';
   history.replaceState(null,'','#'+name);
+  window.scrollTo(0,0);
 }
 document.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>page(el.dataset.page)));
 document.querySelectorAll('[data-goto]').forEach(el=>el.addEventListener('click',()=>page(el.dataset.goto)));
 window.addEventListener('hashchange',()=>page(location.hash.slice(1)));
 page(location.hash.slice(1));
+window.addEventListener('load',()=>window.scrollTo(0,0));
 function toast(message) { $('toast').textContent=message; $('toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').hidden=true,4500); }
 async function command(action, message) {
   if (working) return;
@@ -73,6 +75,7 @@ function render(s){
   $('sim-time').textContent=stamp(s.time)+' UTC';
   $('run-state').textContent=s.halted?'账户已锁定':s.running?'自动模拟运行中':'模拟已暂停';
   $('run-dot').style.background=s.halted?'var(--red)':s.running?'var(--green)':'#7b878e';
+  $('intel-decision-mode').textContent=s.provider==='rules'?'模拟决策：规则模式，新闻不参与买卖信号。':'模拟决策：模型模式，情报作为输入，尚未验证判断效果。';
   $('provider-label').textContent=s.provider==='rules'?'规则决策 · 无模型费用':'模型 API 决策';
   $('run-button').textContent=s.running?'暂停模拟 Ⅱ':'启动模拟 ▶';
   $('error-banner').hidden=!h.last_error;$('error-banner').textContent=h.last_error||'';
@@ -97,7 +100,7 @@ function render(s){
 }
 async function refresh(){
   try{const response=await fetch('/api/state');if(!response.ok)throw new Error('HTTP '+response.status);state=await response.json();render(state);$('connection-text').textContent='本地已连接';$('connection-dot').style.background='var(--green)';}
-  catch(error){$('connection-text').textContent='连接中断';$('connection-dot').style.background='var(--red)';$('error-banner').hidden=false;$('error-banner').textContent='无法获取最新状态，请检查本地服务。'+error.message;}
+  catch(error){$('intel-decision-mode').textContent='暂时无法读取模拟账户状态。';$('connection-text').textContent='连接中断';$('connection-dot').style.background='var(--red)';$('error-banner').hidden=false;$('error-banner').textContent='无法获取最新状态，请检查本地服务。'+error.message;}
 }
 async function poll(){await refresh();setTimeout(poll,2500);}
 controls();poll();
