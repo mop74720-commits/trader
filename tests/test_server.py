@@ -70,6 +70,11 @@ class ServerTests(unittest.TestCase):
             with self.request("/api/intelligence") as response:
                 data=json.load(response)
             self.assertEqual(len(data["digest"]["events"]),1)
+            with self.request("/api/intelligence/brief") as response:
+                brief=json.load(response)
+                self.assertEqual(brief["summary"]["related_reports"],1)
+                self.assertEqual(brief["market"]["mode"],"synthetic")
+                self.assertEqual(brief["evidence_policy"],"source_attributed_unverified")
             with self.request("/api/intelligence/feed?mode=timeline&assets=SOL&limit=1") as response:
                 feed=json.load(response)
                 self.assertEqual(feed["feed"]["matched_total"],1)

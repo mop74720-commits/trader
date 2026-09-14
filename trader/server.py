@@ -92,6 +92,21 @@ def handler_for(engine, runtime):
                         context={"holdings":list(engine.state["positions"]),"watchlist":list(engine.state["bars"])}
                 if path=="/api/intelligence":
                     return self.send(200,{"status":hub.status(),"digest":hub.digest(context=context),"notifications":hub.notifications(),"recent":hub.recent_evidence()})
+                if path=="/api/intelligence/brief":
+                    # Product-facing contract: one compact payload for the information workspace.
+                    # Market values remain explicitly synthetic; intelligence does not place orders.
+                    with engine.lock:
+                        market=engine.view()
+                    digest=hub.feed(None,context,mode="selected",window="24h",limit=3)
+                    return self.send(200,{"as_of":digest["as_of"],"summary":{
+                        "selected_reports":digest["feed"]["counts"]["selected"],
+                        "related_reports":digest["feed"]["counts"]["timeline"],
+                        "quotes":digest["feed"]["counts"]["quotes"],
+                        "source_health":hub.status()["health"],
+                    },"events":digest["events"],"market":{
+                        "mode":"synthetic","status":"unavailable_for_real_impact",
+                        "assets":market["market"],"positions":market["positions"],
+                    },"evidence_policy":"source_attributed_unverified"})
                 if path=="/api/intelligence/feed":
                     at=query.get("as_of",[None])[0]
                     cutoff=timestamp(at) if at is not None else None
