@@ -38,7 +38,7 @@ class ServerTests(unittest.TestCase):
     def test_state_assets_and_step(self):
         with self.request("/api/state") as response:
             self.assertEqual(json.load(response)["mode"],"paper")
-        for path in ("/","/style.css","/app.js","/intelligence.js","/intelligence.css"):
+        for path in ("/","/style.css","/app.js","/intelligence.js","/intelligence.css","/workspace.css"):
             with self.request(path) as response:
                 self.assertEqual(response.status,200)
         tick=self.engine.state["tick"]
@@ -79,7 +79,17 @@ class ServerTests(unittest.TestCase):
                 feed=json.load(response)
                 self.assertEqual(feed["feed"]["matched_total"],1)
                 self.assertEqual(feed["context"]["watchlist"],["SOL"])
-            for query in ("mode=invalid","limit=0","offset=-1","category=other","as_of=bad","window=forever"):
+            with self.request("/api/intelligence/feed?market=us&person=trump&origin=report&mode=timeline") as response:
+                scoped=json.load(response)
+                self.assertEqual(scoped["events"],[])
+                self.assertIn("NVDA",scoped["context"]["watchlist"])
+                self.assertNotIn("BTC",scoped["context"]["watchlist"])
+            with self.request("/api/intelligence/brief?market=us&person=trump") as response:
+                scoped=json.load(response)
+                self.assertEqual(scoped["summary"]["related_reports"],0)
+                self.assertEqual(scoped["scope"]["market"],"us")
+                self.assertIn("NVDA",scoped["context"]["watchlist"])
+            for query in ("mode=invalid","limit=0","offset=-1","category=other","as_of=bad","window=forever","market=other","person=other","origin=verified"):
                 with self.subTest(query=query),self.assertRaises(urllib.error.HTTPError) as error:
                     self.request("/api/intelligence/feed?"+query)
                 self.assertEqual(error.exception.code,400)

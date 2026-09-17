@@ -1,15 +1,27 @@
 # 消息官：信息来源与处理子系统
 
-当前为 **intel-v3**：增加人工信源分级、独立五维规则评估、代码精选门槛，以及精选/全部动态/预测市场阅读视图。具体实现、参数、回放边界及与 AIHOT 的对应见 [AIHOT 参考与落地说明](intelligence-aihot.md)。下文的 v2 阅读优先级继续用于交易摘要排序；页面精选先经过 v3 门槛筛选。
+当前为 **intel-v4-us**：在 v3 的来源分级、规则评估与证据回放基础上，增加美股识别、人物筛选和社交来源归因。界面参考 [牛牛1号公开站点](https://niuone.cn/) 的浅色多面板组织，不复制其后台或声称具有其全部能力。原 v3 参数与 AIHOT 对应见 [AIHOT 参考与落地说明](intelligence-aihot.md)。
+
+## 关键人物与美股阅读范围
+
+默认启用 CNBC、MarketWatch、白宫与 Fed RSS；CoinDesk、Telegram 和 Polymarket 保留适配器，默认关闭。`market=us` 在分页前按美股资产名称 / 代码与美国宏观线索筛选，`person=trump|musk|powell` 按人物线索筛选。规则匹配只表示相关，不能证明影响方向、强度或因果。涉及 Fed 的海外市场报道也可能进入美股范围。
+
+`GET /api/intelligence/feed?market=us&person=trump&mode=timeline&origin=all` 可查看特朗普相关信息。`origin=report|account_post|imported_post` 区分新闻公告、X 账户原帖和导入社交帖；作者尚未核对的社交内容只在 `all` 中显示。人物提及不自动映射股票：Trump 不等于 DJT，Trump Media / DJT 才会被识别为该资产。
+
+X 配置使用单账号查询 `from:realDonaldTrump -is:retweet` / `from:elonmusk -is:retweet`，请求作者展开字段，仅当返回用户名与配置账号一致时标为账户原帖。这只是 API 作者归因，仍为 `unverified`。X 默认禁用，需配置来源 `enabled: true`、环境变量 `TRADER_X_BEARER_TOKEN`，并以 `--enable-x-api` 启动。可能产生费用；本次未作在线调用。保留原有分页游标与退避规则。
+
+Truth Social 公开接口在本环境核实返回 403，未实现绕过访问限制。可直接打开 [特朗普账号](https://truthsocial.com/@realDonaldTrump)，或将合法获得的导出记录保存到 `config/imports/trump-truth.jsonl`，再启用配置中的 `truth_trump` 并重启。每行是 JSON 对象，字段为 `external_id`、`title`、`text`、`url` 和带时区的 `published_at`。不在仓库附造假的示例发言。导入统一标为 `imported_post`，即使带有原帖链接也不提升为验证过的 X 原帖；首次导入时间才是本系统的可用时间。
+
+页面关注列表与模拟账户分开。现有模拟账户仍使用加密资产合成行情；没有真实美股价格、成交量或交易日历接入，也不进行“发言导致涨跌”的推断。历史查询继续只读当时已收录的证据，使用当前筛选规则及当前启用的来源，不改写旧证据或数据库结构。
 
 实现目标是还原原系统公开可确认的职责关系：独立信息采集 → 整理后交给交易认知，而不是声称恢复未公开的消息官源码。原作者私有 TG/X 列表、采集算法、Digest Prompt 和内部数据合同未知。
 
 ## 当前数据流
 
 ```text
-Fed / CoinDesk RSS ───────┐
-Telegram 公共频道 ───────┤
-Polymarket Gamma ────────┤   独立采集任务，无交易所权限
+CNBC / MarketWatch RSS ──┐
+白宫 / Fed RSS ─────────┤
+TG / Polymarket（关闭）──┤   独立采集任务，无交易所权限
 X Recent Search（关闭）─┤
 本地 JSONL（关闭）───────┘
              ↓
@@ -33,9 +45,11 @@ X Recent Search（关闭）─┤
 | 来源 | 实现与默认行为 | 覆盖限制 |
 | --- | --- | --- |
 | Federal Reserve | 官方 RSS，15 分钟检查，7 天有效期 | 只读 RSS 内的标题/摘要，非所有宏观数据 |
-| CoinDesk | 公共 RSS，5 分钟检查，24 小时有效期 | 最近 feed 窗口，非全站全文 |
-| Telegram | `t.me/s/binance_announcements` 公共预览，5 分钟检查 | 最近公开文本消息；不登录、不加入群、不读取私聊；无历史补采，媒体仅内容无文本则跳过 |
-| Polymarket | Gamma API 的 Crypto 标签（本轮核实 tag 21），按 24h 成交量取前 30 个事件 | 事件下的开放子市场；排除已关闭/已过期市场，最多 500 条市场报价；不是全量市场，也非精确可成交概率 |
+| CNBC / MarketWatch | 公共 RSS，5 分钟检查，7 天内容有效期 | 只覆盖 feed 当前窗口；不是全部美股新闻 |
+| 白宫 | 官方 RSS，10 分钟检查，7 天内容有效期 | 机构政策发布，不等于个人社交帖 |
+| CoinDesk（关闭） | 公共 RSS，5 分钟检查，24 小时有效期 | 最近 feed 窗口，非全站全文 |
+| Telegram（关闭） | `t.me/s/binance_announcements` 公共预览，5 分钟检查 | 最近公开文本消息；不登录、不加入群、不读取私聊；无历史补采，媒体仅内容无文本则跳过 |
+| Polymarket（关闭） | Gamma API 的 Crypto 标签（tag 21），按 24h 成交量取前 30 个事件 | 事件下的开放子市场；排除已关闭/已过期市场，最多 500 条市场报价；不是全量市场，也非精确可成交概率 |
 | X | Recent Search，Bearer Token，保存 `since_id` 与待续分页 | 默认关闭，在线调用未验证；需要显式启用并自行确认计费；搜索历史覆盖受提供商限制 |
 | 自有 JSONL | 配置目录内的本地导出文件，单文件 ≤3 MB、≤500 条 | 不信任文件自带采集时间；以本次导入时间作为可用时间 |
 

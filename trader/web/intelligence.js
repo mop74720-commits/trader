@@ -6,6 +6,7 @@
   let feedData = null;
   let feedMode = 'selected';
   let feedCategory = '';
+  let feedPerson = '';
   let feedRequest = 0;
   let feedLoading = false;
   let failedAppend = false;
@@ -15,13 +16,15 @@
   const dateFormat = new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
   const time = seconds => seconds == null ? '—' : dateFormat.format(new Date(seconds*1000));
   const day = seconds => time(seconds).slice(0,10);
-  const tierName = {T1:'官方原文','T1.5':'官方频道',T2:'媒体报道',unrated:'来源待分级'};
+  const tierName = {T1:'官方原文','T1.5':'主体账号',T2:'媒体报道',unrated:'来源待分级'};
   const reasonName = {asset_or_macro_match:'与你关注的资产或宏观政策相关',material_event_terms:'涉及政策、资金或市场运行的重要变化',first_party_source:'来自发布方的一手渠道',market_background:'补充市场背景'};
   const duration = seconds => seconds >= 86400 ? `${Math.round(seconds/86400)} 天` : seconds >= 3600 ? `${Math.round(seconds/3600)} 小时` : seconds < 60 ? '不到 1 分钟' : `${Math.round(seconds/60)} 分钟`;
   const health = {healthy:'正常',degraded:'部分来源异常',error:'读取失败',stale:'更新延迟',pending:'等待首次读取',disabled:'未启用'};
   const coverage = {latest_window:'公开内容的最近一段',top_volume_sample:'成交量较高的市场样本',recent_search_window:'X 的近期搜索结果',pagination_pending:'还有内容等待读取',configured_file:'指定的本地文件'};
   const sourceKind = {rss:'公开资讯源',telegram:'公开频道',polymarket:'预测市场',x:'X 搜索',jsonl:'本地文件'};
-  const topic = {monetary_policy:'宏观政策',regulation:'监管',security:'安全事件',exchange:'交易所',derivatives:'衍生品',market:'市场'};
+  const topic = {policy:'关税与政策',earnings:'公司财报',monetary_policy:'宏观政策',regulation:'监管',security:'安全事件',exchange:'交易所',derivatives:'衍生品',market:'市场'};
+  const people = {trump:'特朗普',musk:'马斯克',powell:'鲍威尔'};
+  const attribution = {account_post:'X 账户原帖 · 未核实',report:'新闻 / 公告',imported_post:'导入社交帖 · 未核实',social_unverified:'社交内容 · 作者待核对'};
   const claimState = {reported:'报道称已发生',planned:'计划 / 预期',application:'申请 / 受理',uncertain:'传闻 / 不确定',denied:'否定 / 驳回',unknown:'进展待确认',market_quote:'预测合约'};
   const gapLabel = {publication_time_missing:'缺少发布时间',source_link_missing:'缺少原始链接',primary_evidence_unchecked:'还没有核对官方公告或最初报道',single_source_family:'现有报道可能来自同一出处，不能算多方确认',event_status_unknown:'仅凭标题还无法判断事情进展',conflicting_claims:'需核对冲突报道',orderbook_missing:'没有买卖盘数据，无法判断能否按这个价格成交',resolution_rules_unchecked:'尚未核对合约怎样判定结果',liquidity_missing:'缺少流动性数据'};
   const matchLabel = {holding:'与模拟持仓相关',watchlist:'与你关注的资产相关',macro:'宏观政策动态',general:'市场动态'};
@@ -56,8 +59,12 @@
     const reasons=(e.assessment?.reasons || []).map(r=>reasonName[r]).filter(Boolean);
     const unresolved=e.possible_conflict?'相关报道说法不一致，需对照原始发布。':(e.evidence_gaps||[]).slice(0,2).map(g=>gapLabel[g]||g).join('；') || '尚未独立核实。';
     const status=claimState[e.claim?.status] || '进展待确认';
+    const origin=e.focus?.attribution||'report';
+    const sourceLabel=origin==='report'?(e.source_tier==='T1'?'官方发布':e.focus?.people?.length?'媒体转述':'媒体报道'):attribution[origin];
     return `<article class="intel-event" id="event-${esc(e.id)}"><div class="intel-event-head"><time title="${time(at)} 北京时间">${time(at).slice(11)} <small>${quote?'读取':e.published_at==null?'收录':'发布'}</small></time><span class="intel-source-name">${esc(primary.source)}</span><span class="intel-tier">${esc(quote?'预测市场报价':tierName[e.source_tier]||tierName.unrated)}</span>${!quote?`<span class="intel-score ${e.editorial?.selected?'selected':''}">${e.editorial?.selected?'规则精选':'相关报道'}</span>`:''}</div>
       <h3>${safeLink(primary.url)?`<a href="${safeLink(primary.url)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a>`:esc(e.title)}</h3>
+      <div class="intel-compact-tags"><span class="intel-origin-tag">${esc(sourceLabel)}</span>${(e.focus?.people||[]).map(p=>`<span>${esc(people[p]||p)}</span>`).join('')}${e.assets.map(a=>`<button data-intel-asset="${esc(a)}">${esc(a)}</button>`).join('')}<span>${esc(topic[e.category]||'市场')}</span></div>
+      <details class="intel-story-detail" data-event="story-${esc(e.id)}"><summary>查看摘要与核实线索</summary>
       ${!quote && e.summary.trim()!==e.title.trim()?`<p class="intel-excerpt"><span class="intel-text-label">原文摘录</span>${esc(e.summary)}</p>`:''}
       <dl class="intel-story-facts">
         <div><dt>关联资产</dt><dd>${e.assets.length?e.assets.map(a=>`<button class="intel-asset" data-intel-asset="${esc(a)}" aria-label="搜索 ${esc(a)} 相关信息">${esc(a)}</button>`).join(''):'未识别到具体资产'}<span class="intel-context">${esc(topic[e.category]||'市场')} · ${esc(matchLabel[e.context_match]||'市场动态')}</span></dd></div>
@@ -67,7 +74,7 @@
       </dl>
       ${quote?`<div class="intel-quotes">${(e.metrics.outcomes||[]).map(q=>`${esc(q.outcome)} ${(q.price*100).toFixed(1)}%`).join(' / ') || '暂时没有报价'}<br>流动性 ${e.metrics.liquidity==null?'未知':money(e.metrics.liquidity)} · 24 小时成交量 ${e.metrics.volume24hr==null?'未知':money(e.metrics.volume24hr)}</div><p class="intel-small-note">显示价不保证可成交；需查看盘口及合约结算规则。</p>`:`<p class="intel-recommendation"><span>为何展示</span>${esc(reasons.join('；')||'补充市场背景')}。</p>`}
       <div class="intel-story-footer">${safeLink(primary.url)?`<a class="intel-inline-link" href="${safeLink(primary.url)}" target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>`:''}<button class="text-button" data-evidence="${esc(primary.id)}">查看来源记录</button>${related.length?`<details class="intel-related" data-event="related-${esc(e.id)}"><summary>另有 ${related.length} 条相关记录</summary>${related.map(p=>`<div class="intel-related-row"><p>${esc(p.title||p.quote)}</p><small>${time(p.published_at??p.observed_at)} · ${esc(tierName[p.tier]||tierName.unrated)}</small>${citation(p)}</div>`).join('')}</details>`:'<span>目前仅收录这一条来源记录</span>'}</div>
-      ${qualityDetails(e)}</article>`;
+      ${qualityDetails(e)}</details></article>`;
   }
   async function loadFeed(append=false) {
     const request=++feedRequest;
@@ -79,6 +86,9 @@
     $('intel-feed-retry').disabled=true;
     $('intel-events').setAttribute('aria-busy','true');
     const params=new URLSearchParams({mode:feedMode,category:feedCategory,source:$('intel-source-filter').value,q:$('intel-search').value,window:$('intel-window').value,limit:'30'});
+    params.set('market',$('intel-market').value);
+    params.set('person',feedPerson);
+    params.set('origin',$('intel-origin').value);
     if(append && feedData) {
       params.set('offset',feedData.feed.next_offset);
       params.set('as_of',new Date(feedData.as_of*1000).toISOString());
@@ -125,12 +135,12 @@
     const displayedMode=digest.feed.mode;
     const displayedCategory=digest.feed.category;
     const historical=digest.view_replay;
-    const filtered=Boolean(displayedCategory || digest.feed.source_id || digest.feed.query.trim());
+    const filtered=Boolean(displayedCategory || digest.feed.source_id || digest.feed.query.trim() || digest.feed.person || digest.feed.origin!=='all');
     const focus=[...new Set([...(digest.context?.holdings||[]),...(digest.context?.watchlist||[])])];
     const sourceName=current?.status.sources.find(p=>p.id===digest.feed.source_id)?.name || digest.feed.source_id;
     const range=digest.feed.window==='24h'?'过去 24 小时':'过去 7 天';
-    const scope=[range,displayedCategory?topic[displayedCategory]:'全部类别',sourceName||'全部来源',digest.feed.query.trim()?`搜索「${digest.feed.query}」`:''].filter(Boolean).join(' · ');
-    $('intel-quality-summary').textContent=focus.length?`${historical?'本次历史查询':'当前账户'}的关注范围：${focus.join('、')}。`:(historical?'历史查询未指定资产，按通用市场视角整理。':'当前未指定关注资产，按通用市场视角整理。');
+    const scope=[digest.feed.market==='us'?'美股':'全部市场',range,people[digest.feed.person],displayedCategory?topic[displayedCategory]:'全部类别',sourceName||'全部来源',digest.feed.origin!=='all'?attribution[digest.feed.origin]:'',digest.feed.query.trim()?`搜索「${digest.feed.query}」`:''].filter(Boolean).join(' · ');
+    $('intel-quality-summary').textContent=focus.length?`${historical?'本次历史查询':'信息筛选'}的关注范围：${focus.join('、')}。`:(historical?'历史查询未指定资产，按通用市场视角整理。':'当前未指定关注资产，按通用市场视角整理。');
     $('intel-focus-assets').innerHTML=focus.map(a=>`<button class="intel-asset" data-intel-asset="${esc(a)}">${esc(a)}</button>`).join('');
     $('intel-digest-time').textContent=`列表截至 ${time(digest.as_of)}`;
     $('intel-feed-title').textContent={selected:'精选报道',timeline:'全部相关报道',quotes:'预测市场报价'}[displayedMode];
@@ -142,7 +152,7 @@
     $('intel-view-status').textContent=`已加载 ${events.length} / ${digest.feed.matched_total} 条 · ${scope}`;
     $('intel-view-description').textContent={selected:'依据相关性、时效和来源等规则筛选；入选不代表已经证实。',timeline:'当前来源中通过相关性与有效期检查的报道，包含未入选内容。',quotes:'预测合约报价单独展示，不是新闻事实，也不代表客观发生概率。'}[displayedMode];
     $('intel-history-banner').hidden=!historical;
-    $('intel-history-banner').textContent=`正在查看 ${time(digest.as_of)} 前已采集的信息。使用当前筛选规则；右侧运行状态为当前状态。`;
+    $('intel-history-banner').textContent=`正在查看 ${time(digest.as_of)} 前已采集的信息。使用当前筛选规则；信源面板显示当前接入状态。`;
     $('intel-live').hidden=!historical;
     $('intel-refresh').textContent=historical?'重载历史列表 ↻':'刷新列表 ↻';
     $('intel-load-more').hidden=digest.feed.next_offset==null;
@@ -152,6 +162,7 @@
     ['selected','timeline','quotes'].forEach(k=>{$('intel-count-'+k).textContent=digest.feed.counts[k];});
     document.querySelectorAll('[data-intel-mode]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.intelMode===displayedMode)));
     document.querySelectorAll('[data-intel-category]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.intelCategory===displayedCategory)));
+    document.querySelectorAll('[data-intel-person]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.intelPerson===digest.feed.person)));
     const f=digest.funnel;
     $('intel-funnel').innerHTML=[['收到的条目',f.observed_items],['过滤后保留',f.eligible_items],['合并后条目',f.clustered_events],['其中精选报道',f.selected_reports]].map(([label,count])=>`<li><span>${label}</span><strong>${count}</strong></li>`).join('')+`<li class="intel-funnel-note">合并了 ${f.merged_reports} 条重复记录 · ${f.market_quotes} 个预测报价单独展示</li>`;
     $('intel-policy-id').textContent='筛选版本 '+digest.curation_policy.version+' · '+digest.curation_policy.id;
@@ -162,7 +173,7 @@
     const groups=new Map();
     events.forEach(e=>{const key=day(e.kind==='prediction_market'?e.last_observed_at:e.timeline_at);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(e);});
     let html=[...groups].map(([date,rows])=>`<div class="intel-day"><strong>${date}</strong><span>${rows.length} 条 · 北京时间</span></div>${rows.map(renderEvent).join('')}`).join('');
-    if(!html) html=`<div class="empty"><strong>${filtered?'没有找到匹配的信息':displayedMode==='selected'?'这个时间范围暂无入选报道':'这个时间范围暂无可显示的信息'}</strong><p>${displayedMode==='selected'?'可以切换到全部报道，或将时间范围扩大到过去 7 天。':'试试扩大时间范围，或调整类别与来源。'}</p>${displayedMode==='selected'?'<button data-intel-mode="timeline">查看全部报道</button>':''}${filtered?'<button id="intel-reset-filters">清除筛选</button>':''}</div>`;
+    if(!html) html=`<div class="empty"><strong>${filtered?'没有找到匹配的信息':displayedMode==='selected'?'这个时间范围暂无入选报道':'这个时间范围暂无可显示的信息'}</strong><p>${digest.feed.origin==='account_post'?'当前没有符合条件的 X 原帖。请查看信源接入状态；新闻转述不会填入原帖列表。':displayedMode==='quotes'?'当前范围没有预测报价。默认美股配置未启用预测报价来源。':displayedMode==='selected'?'可以切换到全部报道，或将时间范围扩大到过去 7 天。':'试试扩大时间范围，或调整类别与来源。'}</p>${displayedMode==='selected'?'<button data-intel-mode="timeline">查看全部报道</button>':''}${filtered?'<button id="intel-reset-filters">清除筛选</button>':''}</div>`;
     if($('intel-events').dataset.rendered!==html) {
       $('intel-events').innerHTML=html;
       $('intel-events').dataset.rendered=html;
@@ -179,6 +190,7 @@
     const enabled=s.sources.filter(p=>p.enabled);
     const healthy=enabled.filter(p=>p.health==='healthy').length;
     const attempts=enabled.map(p=>p.last_success).filter(Number.isFinite);
+    $('intel-person-sources').innerHTML=s.sources.filter(p=>p.person).map(p=>`<div class="intel-person-source"><div class="intel-person-avatar">${p.person==='trump'?'DT':'EM'}</div><div class="intel-person-body"><b>${esc(p.name)}</b><span>@${esc(p.account)}</span><small class="${p.health==='healthy'?'positive':''}">${p.enabled?(health[p.health]||'等待更新'):p.kind==='x'?'自动采集未接通':'仅支持手动导入'}</small><a href="${safeLink(p.profile_url)}" target="_blank" rel="noopener noreferrer">打开账号 ↗</a></div></div>`).join('') || '<p>当前配置没有人物账号。</p>';
     $('intel-health').textContent=s.collecting?'正在检查外部来源':health[s.health]||s.health;
     $('intel-source-count').textContent=`${enabled.length} 个已启用来源 · ${healthy} 个最近读取正常`;
     $('intel-source-freshness').textContent=attempts.length?`最近一次来源读取成功：${time(Math.max(...attempts))}。其余来源状态见下方目录。`:'尚无成功读取记录，可展开来源目录查看原因。';
@@ -189,7 +201,7 @@
     $('intel-collect').textContent=s.collecting?'正在检查来源…':'检查信源';
     $('intel-collect').disabled=s.collecting||pending;
     const selection=$('intel-source-filter').value;
-    $('intel-source-filter').innerHTML='<option value="">全部来源</option>'+s.sources.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+    $('intel-source-filter').innerHTML='<option value="">全部来源</option>'+s.sources.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.enabled?'':'（未启用）'}</option>`).join('');
     $('intel-source-filter').value=selection;
     $('intel-sources').innerHTML=s.sources.map(p=>`<tr><td>${esc(p.name)}<br><small class="muted">${esc(tierName[p.tier]||tierName.unrated)} · ${esc(sourceKind[p.kind]||p.kind)}<br>${esc(p.editorial_note||'尚未填写采用理由')}</small></td><td class="${p.health==='healthy'?'positive':p.health==='error'?'negative':'muted'}">${esc(health[p.health]||p.health)}${sourceIssue(p)}</td><td>${time(p.last_success)}</td><td>${p.fetched_items??'—'} / ${p.new_versions??'—'}</td><td>${duration(p.interval_seconds)} / ${duration(p.ttl_seconds)}</td><td>${esc(coverage[p.coverage]||'尚未读取')}<br><small class="muted">下次 ${time(p.next_poll)}</small></td></tr>`).join('');
     $('intel-evidence').innerHTML=current.recent.map(p=>`<tr><td class="intel-evidence-title">${esc(p.title)}</td><td>${esc(p.source_name)}</td><td class="${p.quarantined?'negative':'muted'}">${p.quarantined?'暂不采用':!p.relevant?'暂不相关':'已保存'}${p.quarantined?'<br><small>含指令样式文本或异常发布时间</small>':''}</td><td>第 ${p.revision} 版</td><td>${time(p.observed_at)}</td><td><button class="text-button" data-evidence="${esc(p.id)}">查看 ↗</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">还没有读取记录</td></tr>';
@@ -200,9 +212,11 @@
       current=await get('/api/intelligence');
       const unavailable=current.status.sources.filter(p=>p.enabled && p.health!=='healthy').length;
       $('intel-error').hidden=!unavailable && !current.status.last_error;
+      $('intel-error').classList.add('intel-source-warning');
       $('intel-error').textContent=unavailable?`当前有 ${unavailable} 个来源尚未就绪、读取异常或延迟，最新信息可能不完整。可展开下方来源目录查看原因。`:'来源检查暂时遇到问题，系统会重试。已有列表仍可阅读。';
       render();
     } catch(error) {
+      $('intel-error').classList.remove('intel-source-warning');
       $('intel-health').textContent='来源状态连接中断';
       $('intel-error').hidden=false;
       $('intel-error').textContent=current?'暂时无法读取来源状态，下方保留上次记录。系统会自动重试连接。':'暂时无法读取来源状态。可重试列表，或检查本地服务是否启用了信息采集。';
@@ -212,6 +226,8 @@
   $('intel-feed-retry').addEventListener('click',()=>loadFeed(failedAppend));
   $('intel-source-filter').addEventListener('change',()=>loadFeed());
   $('intel-window').addEventListener('change',()=>loadFeed());
+  $('intel-market').addEventListener('change',()=>loadFeed());
+  $('intel-origin').addEventListener('change',()=>loadFeed());
   $('intel-load-more').addEventListener('click',()=>loadFeed(true));
   $('intel-search').maxLength=200;
   $('intel-search').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadFeed(),250);});
@@ -252,14 +268,17 @@
       return;
     }
     const asset=event.target.closest('[data-intel-asset]');
-    if(asset){feedMode='timeline';$('intel-search').value=asset.dataset.intelAsset;await loadFeed();$('intel-search').focus({preventScroll:true});return;}
+    if(asset){feedMode='timeline';feedPerson='';feedCategory='';$('intel-source-filter').value='';$('intel-origin').value='all';$('intel-search').value=asset.dataset.intelAsset;await loadFeed();$('intel-search').focus({preventScroll:true});return;}
+
+    const personButton=event.target.closest('[data-intel-person]');
+    if(personButton){feedPerson=personButton.dataset.intelPerson;if(personButton.classList.contains('intel-person-entry')){feedMode='timeline';feedCategory='';$('intel-search').value='';$('intel-source-filter').value='';$('intel-origin').value='all';}await loadFeed();return;}
 
     const modeButton=event.target.closest('[data-intel-mode]');
     if(modeButton){feedMode=modeButton.dataset.intelMode;loadFeed();return;}
     const categoryButton=event.target.closest('[data-intel-category]');
     if(categoryButton){feedCategory=categoryButton.dataset.intelCategory;loadFeed();return;}
     if(event.target.closest('#intel-reset-filters')) {
-      feedCategory='';$('intel-source-filter').value='';$('intel-search').value='';loadFeed();$('intel-search').focus();return;
+      feedCategory='';feedPerson='';$('intel-origin').value='all';$('intel-source-filter').value='';$('intel-search').value='';loadFeed();$('intel-search').focus();return;
     }
     const button=event.target.closest('[data-evidence]');
     if(!button)return;

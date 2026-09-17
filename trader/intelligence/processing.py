@@ -10,9 +10,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .sources import Source, Tree, timestamp
 from .curation import POLICY, TIERS, assess, market_relevant, policy_id, select
+from .focus import US_ASSETS, reading_tags
 
-PROCESSOR_VERSION="intel-v3"
+PROCESSOR_VERSION="intel-v4-us"
 ASSETS={
+    **US_ASSETS,
     "BTC":r"\b(?:btc|bitcoin)\b|比特币",
     "ETH":r"\b(?:eth|ethereum|ether)\b|以太坊",
     "SOL":r"\b(?:sol|solana)\b|索拉纳",
@@ -23,12 +25,14 @@ ASSETS={
     "USDC":r"\b(?:usdc|circle)\b",
 }
 TOPICS={
+    "policy":r"\b(?:tariffs?|trade war|trade deal|export controls?|sanctions?|executive order)\b|关税|贸易战|出口管制|制裁|行政令",
+    "earnings":r"\b(?:earnings|revenue|guidance|buyback|dividend|quarterly results)\b|财报|营收|业绩指引|回购|分红",
     "monetary_policy":r"\b(?:fed|fomc|federal reserve|interest rate|inflation|cpi|payroll|ecb)\b|美联储|降息|加息|通胀|非农",
     "regulation":r"\b(?:sec|regulator|regulation|lawsuit|tax|etf|approval|approved)\b|监管|批准|税收|诉讼",
     "security":r"\b(?:hack|hacked|exploit|breach|stolen|depeg|insolvency)\b|黑客|被盗|漏洞|脱锚|破产",
     "exchange":r"\b(?:exchange|binance|coinbase|kraken|listing|list|delist|withdrawal|margin)\b|交易所|上线|下架|提现|保证金",
     "derivatives":r"\b(?:funding|futures|liquidation|open interest)\b|资金费率|期货|清算|爆仓|持仓量",
-    "market":r"\b(?:crypto|bitcoin|ethereum|blockchain|stablecoin|defi)\b|加密|区块链|稳定币",
+    "market":r"\b(?:crypto|bitcoin|ethereum|blockchain|stablecoin|defi|wall street|stocks?|equities|nasdaq|s&p\s*500)\b|加密|区块链|稳定币|美股",
 }
 INJECTION_PATTERNS=[
     r"ignore\s+(?:all\s+)?(?:previous|prior|system|above)\s+instructions",
@@ -133,6 +137,7 @@ def normalize(raw: dict, source: Source, observed_at: float) -> dict:
         flags.append("future_publication_time")
     assets=sorted(k for k,p in ASSETS.items() if re.search(p,combined,re.I))
     topics=sorted(k for k,p in TOPICS.items() if re.search(p,combined,re.I))
+    focus=reading_tags(combined,assets,source.person,source.kind,plain(raw.get("author"),64),source.account,url)
     relevant=bool(assets or topics)
     if source.keywords:
         relevant=relevant and any(k.casefold() in combined.casefold() for k in source.keywords)
@@ -146,7 +151,8 @@ def normalize(raw: dict, source: Source, observed_at: float) -> dict:
         metrics["outcomes"]=[{"outcome":plain(q.get("outcome"),100),"price":round(q["price"],4)}
                              for q in supplied.get("outcomes",[])[:20] if isinstance(q,dict) and isinstance(q.get("price"),(int,float)) and not isinstance(q["price"],bool) and math.isfinite(q["price"]) and 0<=q["price"]<=1]
     # Provider timestamps do not establish availability. Every version is bounded by local observation.
-    content_hash=fingerprint({"title":title,"text":text,"kind":kind,"metrics":metrics})
+    content_hash=fingerprint({"title":title,"text":text,"kind":kind,"metrics":metrics,
+                              **({"author":focus["author"]} if focus["author"] else {})})
     external=str(raw.get("external_id") or url or content_hash)[:500]
     evidence_id=fingerprint(source.id+"\0"+external+"\0"+content_hash)[:24]
     return {"id":evidence_id,"source_id":source.id,"source_name":source.name,"source_group":source.group or source.id,"source_tier":source.tier,
@@ -155,7 +161,7 @@ def normalize(raw: dict, source: Source, observed_at: float) -> dict:
             "time_quality":"publisher_time" if published is not None else "observed_only",
             "kind":kind,"metrics":metrics,"assets":assets,"topics":topics,"relevant":relevant,
             "flags":flags,"quarantined":bool(flags),"reliability":source.reliability,"ttl_seconds":source.ttl_seconds,
-            "negative_claim":bool(re.search(NEGATION,title,re.I)),"processor":PROCESSOR_VERSION}
+            "negative_claim":bool(re.search(NEGATION,title,re.I)),"processor":PROCESSOR_VERSION,"focus":focus}
 
 
 def build_digest(items: list[dict], as_of: float, limit=12, context=None, include_candidates=False, selection_policy=None) -> dict:
@@ -181,6 +187,9 @@ def build_digest(items: list[dict], as_of: float, limit=12, context=None, includ
         match=None
         for cluster in clusters:
             head=cluster[0]
+            # Keep account statements separate from media retellings and imported material.
+            if item.get("focus",{}).get("attribution","report")!=head.get("focus",{}).get("attribution","report"):
+                continue
             if item["kind"]!=head["kind"] or item["negative_claim"]!=head["negative_claim"] or item["claim_status"]!=head["claim_status"] or abs(anchor-head["freshness_anchor"])>36*3600:
                 continue
             # Separate prediction contracts even if their questions are almost identical.
@@ -236,6 +245,7 @@ def build_digest(items: list[dict], as_of: float, limit=12, context=None, includ
             if head["claim_status"]=="unknown":
                 gaps.append("event_status_unknown")
         events.append({"id":event_id,"title":head["title"],"summary":head["text"][:600],"kind":head["kind"],
+                       "focus":head.get("focus") or reading_tags(head["title"]+" "+head["text"],head["assets"]),
                        "assets":head["assets"],"topics":head["topics"],"published_at":head["published_at"],
                        "observed_at":head["observed_at"],"last_observed_at":max(i.get("last_observed_at",i["observed_at"]) for i in cluster),"time_quality":head["time_quality"],
                        "priority":priority,"independent_reports":len(unique),"verification":"market_quote" if head["kind"]=="prediction_market" else "unverified",

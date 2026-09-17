@@ -14,6 +14,7 @@ from .cognition import ModelCognition, RuleCognition
 from .engine import Engine
 from .intelligence.service import DEFAULT_CONFIG, IntelligenceHub
 from .intelligence.sources import timestamp
+from .intelligence.focus import US_WATCHLIST
 
 WEB = Path(__file__).resolve().parent / "web"
 
@@ -90,6 +91,8 @@ def handler_for(engine, runtime):
                 if not focus:
                     with engine.lock:
                         context={"holdings":list(engine.state["positions"]),"watchlist":list(engine.state["bars"])}
+                    if query.get("market",["all"])[0]=="us":
+                        context={"watchlist":US_WATCHLIST}
                 if path=="/api/intelligence":
                     return self.send(200,{"status":hub.status(),"digest":hub.digest(context=context),"notifications":hub.notifications(),"recent":hub.recent_evidence()})
                 if path=="/api/intelligence/brief":
@@ -97,13 +100,17 @@ def handler_for(engine, runtime):
                     # Market values remain explicitly synthetic; intelligence does not place orders.
                     with engine.lock:
                         market=engine.view()
-                    digest=hub.feed(None,context,mode="selected",window="24h",limit=3)
+                    try:
+                        digest=hub.feed(None,context,mode="selected",window="24h",limit=3,
+                                        market=query.get("market",["all"])[0],person=query.get("person",[""])[0],origin=query.get("origin",["all"])[0])
+                    except ValueError:
+                        return self.send(400,{"error":"Invalid brief scope"})
                     return self.send(200,{"as_of":digest["as_of"],"summary":{
                         "selected_reports":digest["feed"]["counts"]["selected"],
                         "related_reports":digest["feed"]["counts"]["timeline"],
                         "quotes":digest["feed"]["counts"]["quotes"],
                         "source_health":hub.status()["health"],
-                    },"events":digest["events"],"market":{
+                    },"events":digest["events"],"scope":digest["feed"],"context":digest["context"],"market":{
                         "mode":"synthetic","status":"unavailable_for_real_impact",
                         "assets":market["market"],"positions":market["positions"],
                     },"evidence_policy":"source_attributed_unverified"})
@@ -123,7 +130,8 @@ def handler_for(engine, runtime):
                     try:
                         result=hub.feed(cutoff,context,mode=query.get("mode",["selected"])[0],category=query.get("category",[""])[0],
                                         source_id=query.get("source",[""])[0],query=query.get("q",[""])[0],window=query.get("window",["24h"])[0],
-                                        offset=int(query.get("offset",["0"])[0]),limit=int(query.get("limit",["30"])[0]))
+                                        offset=int(query.get("offset",["0"])[0]),limit=int(query.get("limit",["30"])[0]),
+                                        market=query.get("market",["all"])[0],person=query.get("person",[""])[0],origin=query.get("origin",["all"])[0])
                         return self.send(200,result)
                     except ValueError:
                         return self.send(400,{"error":"Invalid feed filters or pagination"})
@@ -158,7 +166,8 @@ def handler_for(engine, runtime):
                             writer.writerow(event["trade"])
                 return self.send(200, buffer.getvalue().encode("utf-8-sig"), "text/csv; charset=utf-8")
             static = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css"),
-                      "/intelligence.js": ("intelligence.js", "text/javascript"), "/intelligence.css": ("intelligence.css", "text/css")}
+                      "/intelligence.js": ("intelligence.js", "text/javascript"), "/intelligence.css": ("intelligence.css", "text/css"),
+                      "/workspace.css": ("workspace.css", "text/css")}
             if path in static:
                 name, mime = static[path]
                 return self.send(200, (WEB / name).read_bytes(), mime + "; charset=utf-8")

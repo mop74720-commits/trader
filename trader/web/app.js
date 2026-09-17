@@ -13,10 +13,11 @@ const labels = {
   decisions:['交易复盘','每笔模拟交易，为什么发生？','对照决策提议、独立审查和实际执行结果。'],
   factors:['策略研究','把灵感，交给数据检验。','候选信号经过样本外验证，仅进入观察或淘汰。'],
   system:['运行状态','持续运行，始终有界。','检查数据新鲜度、风险约束与完整事件记录。'],
-  intelligence:['信息简报','市场发生了什么？','先读报道，再看关联资产、来源证据与待核实事项。']
+  intelligence:['美股情报','美股情报工作台','关注政策如何传导到公司与市场，先核对来源，再判断影响。']
 };
 function page(name) {
   if (!labels[name]) name='intelligence';
+  document.body.dataset.page=name;
   document.querySelectorAll('.page').forEach(el => el.hidden = el.id !== name);
   document.querySelectorAll('.nav').forEach(el => {el.classList.toggle('active',el.dataset.page === name); el.setAttribute('aria-current',el.dataset.page === name ? 'page':'false');});
   ['page-label','page-title','page-description'].forEach((id,i) => $(id).textContent = labels[name][i]);
@@ -31,7 +32,7 @@ document.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click'
 document.querySelectorAll('[data-goto]').forEach(el=>el.addEventListener('click',()=>page(el.dataset.goto)));
 window.addEventListener('hashchange',()=>page(location.hash.slice(1)));
 page(location.hash.slice(1));
-window.addEventListener('load',()=>window.scrollTo(0,0));
+window.addEventListener('load',()=>requestAnimationFrame(()=>window.scrollTo(0,0)));
 function toast(message) { $('toast').textContent=message; $('toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').hidden=true,4500); }
 async function command(action, message) {
   if (working) return;

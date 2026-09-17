@@ -39,12 +39,19 @@ class Source:
     keywords: list[str] = field(default_factory=list)
     tier: str = "unrated"
     editorial_note: str = ""
+    person: str = ""
+    account: str = ""
+    profile_url: str = ""
 
     def __post_init__(self):
         if not re.fullmatch(r"[a-z0-9_-]{1,60}", self.id):
             raise ValueError("Source id must contain only lowercase letters, digits, _ or -")
         if self.kind not in {"rss", "telegram", "polymarket", "x", "jsonl"}:
             raise ValueError("Unknown source adapter")
+        if self.person not in {"", "trump", "musk", "powell"} or (self.account and not re.fullmatch(r"[A-Za-z0-9_]{1,64}", self.account)):
+            raise ValueError("Invalid monitored account")
+        if self.profile_url:
+            validate_url(self.profile_url)
         if not isinstance(self.enabled, bool) or not 0 <= self.reliability <= 1:
             raise ValueError("Invalid source policy")
         if self.tier not in {"T1","T1.5","T2","unrated"} or not isinstance(self.editorial_note,str) or len(self.editorial_note)>500:
@@ -235,11 +242,13 @@ def parse_x(data: dict) -> list[dict]:
     if not isinstance(data,dict) or data.get("errors"):
         raise ValueError("X returned an error or partial response")
     result=[]
+    authors={str(user["id"]):user.get("username", "") for user in data.get("includes", {}).get("users", [])}
     for post in data.get("data",[]):
         if not isinstance(post,dict) or not re.fullmatch(r"\d+",str(post.get("id",""))):
             continue
         result.append({"external_id":str(post["id"]),"title":post.get("text","")[:250],"text":post.get("text",""),
-                       "url":"https://x.com/i/web/status/"+str(post["id"]),"published_at":timestamp(post.get("created_at"))})
+                       "url":"https://x.com/i/web/status/"+str(post["id"]),"published_at":timestamp(post.get("created_at")),
+                       "author":authors.get(str(post.get("author_id", "")), "")})
     return result
 
 
@@ -304,7 +313,8 @@ def collect(source: Source, state: dict, now: float, config_dir: Path, allow_x=F
         if not token:
             raise FetchError("missing_x_credentials")
         cursor=state.get("cursor",{})
-        query={"query":source.query,"max_results":max(10,source.limit),"tweet.fields":"created_at", "sort_order":"recency"}
+        query={"query":source.query,"max_results":max(10,source.limit),"tweet.fields":"created_at,author_id",
+               "expansions":"author_id","user.fields":"username", "sort_order":"recency"}
         if cursor.get("since_id"):
             query["since_id"]=cursor["since_id"]
         if cursor.get("next_token"):

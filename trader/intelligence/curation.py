@@ -13,10 +13,10 @@ from pathlib import Path
 
 DEFAULT_POLICY=Path(__file__).resolve().parents[2]/"config"/"intelligence.curation.json"
 TIERS={"T1":3,"T1.5":2,"T2":1,"unrated":0}
-CATEGORIES=("security","monetary_policy","regulation","exchange","derivatives","market")
+CATEGORIES=("policy","earnings","security","monetary_policy","regulation","exchange","derivatives","market")
 DIMENSIONS=("relevance","materiality","specificity","freshness","source_quality")
 MACRO=r"\b(?:fomc|interest rates?|inflation|cpi|payroll|monetary policy|rate cut|rate hike)\b|降息|加息|通胀|非农|货币政策"
-MATERIAL=r"\b(?:approved|approval|launch(?:ed)?|hack(?:ed)?|exploit|stolen|suspend(?:ed)?|halt(?:ed)?|list(?:ing)?|delist(?:ed)?|withdrawals?|rates?|etf|inflows?|outflows?|funding|liquidation|depeg|upgrade|outage)\b|批准|被盗|暂停|上线|下架|提现|利率|资金费率|升级|故障"
+MATERIAL=r"\b(?:tariffs?|sanctions?|earnings|revenue|guidance|buyback|approved|approval|launch(?:ed)?|hack(?:ed)?|exploit|stolen|suspend(?:ed)?|halt(?:ed)?|list(?:ing)?|delist(?:ed)?|withdrawals?|rates?|etf|inflows?|outflows?|funding|liquidation|depeg|upgrade|outage)\b|关税|制裁|财报|营收|批准|被盗|暂停|上线|下架|提现|利率|资金费率|升级|故障"
 
 
 def load_policy(path=DEFAULT_POLICY):
@@ -46,7 +46,7 @@ def market_relevant(item):
     """An official institution's name alone does not make an administrative post useful."""
     if not item["relevant"]:
         return False
-    if item["assets"] or set(item["topics"])&{"security","exchange","derivatives","market"}:
+    if item["assets"] or set(item["topics"])&{"policy","earnings","security","exchange","derivatives","market"}:
         return True
     return bool(re.search(MACRO+ r"|\b(?:crypto|digital assets?|stablecoins?|bitcoin|ethereum)\b|加密|数字资产|稳定币",item["title"]+" "+item["text"],re.I))
 

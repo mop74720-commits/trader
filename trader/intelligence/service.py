@@ -10,6 +10,8 @@ from pathlib import Path
 
 from .processing import build_digest, fingerprint, normalize
 from .sources import Batch, FetchError, Source, collect, load_sources
+from .curation import CATEGORIES
+from .focus import PEOPLE, US_WATCHLIST
 
 DEFAULT_CONFIG=Path(__file__).resolve().parents[2]/"config"/"intelligence.sources.json"
 
@@ -206,12 +208,16 @@ class IntelligenceHub:
         result["replay_policy"]="historical_evidence_current_processor_and_enabled_sources"
         return result
 
-    def feed(self, as_of=None, context=None, mode="selected", category="", source_id="", query="", window="24h", offset=0, limit=30):
+    def feed(self, as_of=None, context=None, mode="selected", category="", source_id="", query="", window="24h", offset=0, limit=30, market="all", person="", origin="all"):
         """Filter the complete bounded candidate pool before pagination, never just the digest's top 12."""
         if mode not in {"selected","timeline","quotes"} or window not in {"24h","7d"}:
             raise ValueError("Invalid feed mode or window")
-        if category not in {"","security","monetary_policy","regulation","exchange","derivatives","market"}:
+        if category not in ("", *CATEGORIES):
             raise ValueError("Invalid feed category")
+        if market not in {"all", "us"} or person not in ("", *PEOPLE) or origin not in {"all", "account_post", "report", "imported_post"}:
+            raise ValueError("Invalid reading scope")
+        if context is None and market == "us":
+            context={"watchlist":US_WATCHLIST}
         if not 0<=offset<=2000 or not 1<=limit<=100 or len(query)>200:
             raise ValueError("Invalid feed bounds")
         result=self.digest(as_of,context,include_candidates=True)
@@ -219,12 +225,19 @@ class IntelligenceHub:
         start=cutoff-(86400 if window=="24h" else 7*86400)
         candidates=[]
         for event in result.pop("candidates"):
+            focus=event["focus"]
+            if market=="us" and focus["market_scope"]!="us":
+                continue
+            if person and person not in focus["people"]:
+                continue
+            if origin!="all" and focus["attribution"]!=origin:
+                continue
             at=event["last_observed_at"] if event["kind"]=="prediction_market" else event["timeline_at"]
             if not start<=at<=cutoff or (category and event["category"]!=category):
                 continue
             if source_id and source_id not in event["source_ids"]:
                 continue
-            haystack=" ".join([event["title"],event["summary"],*event["assets"],*[p["quote"] for p in event.get("related_evidence",[])]])
+            haystack=" ".join([event["title"],event["summary"],*event["assets"],*focus["people"],*[p["quote"] for p in event.get("related_evidence",[])]])
             if query.strip().casefold() not in haystack.casefold():
                 continue
             candidates.append(event)
@@ -235,6 +248,7 @@ class IntelligenceHub:
         events.sort(key=lambda e:(e["last_observed_at"] if mode=="quotes" else e["timeline_at"],e["id"]),reverse=True)
         result["events"]=events[offset:offset+limit]
         result["feed"]={"mode":mode,"window":window,"from":start,"to":cutoff,"category":category,"source_id":source_id,"query":query,
+                        "market":market,"person":person,"origin":origin,
                         "matched_total":len(events),"counts":counts,"offset":offset,"limit":limit,
                         "next_offset":offset+limit if offset+limit<len(events) else None,
                         "time_basis":"publisher_time_or_first_observation; quotes_last_observation"}
